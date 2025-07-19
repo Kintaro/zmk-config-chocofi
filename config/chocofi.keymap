@@ -1,415 +1,206 @@
+/*
+ * Copyright (c) 2020 The ZMK Contributors
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #include <behaviors.dtsi>
+#include <behaviors/mouse_keys.dtsi>
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/bt.h>
-#include <dt-bindings/zmk/outputs.h>
-#include <dt-bindings/zmk/ext_power.h>
+#include <dt-bindings/zmk/mouse.h> 
 
-// Key positions
-// - first Letter is the hand: (L)eft or (R)ight
-// - second letter is the finger (P)inky; (R)ing; (M)iddle; (I)ndex; (T)humb
-// - third letter is either
-//      - the column for the thumb finger (O)uter; (H)ome; (I)inner
-//      - the row for all the other fingers (U)pper; (H)ome; (L)ower
-// - for the index fingers, the (I)inner column with another 'I' at the end
-//  ╭──────────────────────────────────────────────╮ ╭──────────────────────────────────────────────╮
-//  │ LPU (0)  LRU (1)  LMU (2)  LIU (3)  LIUI (4) │ │ RIUI (5)  RIU (6)  RMU (7)  RRU (8)  RPU (9) │
-//  │ LPH(10)  LRH(11)  LMH(12)  LIH(13)  LIHI(14) │ │ RIHI(15)  RIH(16)  RMH(17)  RRH(18)  RPH(19) │
-//  │ LPL(20)  LRL(21)  LML(22)  LIL(23)  LILI(24) │ │ RILI(25)  RIL(26)  RML(27)  RRL(28)  RPL(29) │
-//  ╰─────────────────╮ LTO(30)  LTH(31)  LTI (32) │ │ RTI (33)  RTH(34)  RTO(35) ╭─────────────────╯
-//                    ╰────────────────────────────╯ ╰────────────────────────────╯
+#define ZMK_MOUSE_DEFAULT_MOVE_VAL 2250
+#define U_MOUSE_MOVE_EXPONENT 2
+#define U_MOUSE_MOVE_TIME 650
+#define U_MOUSE_MOVE_DELAY 0
 
-// left pinky finger
-#define LPU 0
-#define LPH 10
-#define LPL 20
-
-// left ring finger
-#define LRU 1
-#define LRH 11
-#define LRL 21
-
-// left middle finger
-#define LMU 2
-#define LMH 12
-#define LML 22
-
-// left index finger
-#define LIU 3
-#define LIH 13
-#define LIL 23
-#define LIUI 4
-#define LIHI 14
-#define LILI 24
-
-// left thumb
-#define LTO 30
-#define LTH 31
-#define LTI 32
-
-// right pinky finger
-#define RPU 9
-#define RPH 19
-#define RPL 29
-
-// right ring finger
-#define RRU 8
-#define RRH 18
-#define RRL 28
-
-// right middle finger
-#define RMU 7
-#define RMH 17
-#define RML 27
-
-// right index finger
-#define RIU 6
-#define RIH 16
-#define RIL 26
-#define RIUI 5
-#define RIHI 15
-#define RILI 25
-
-// right thumb
-#define RTO 35
-#define RTH 34
-#define RTI 33
-
-#define L_INDEX_FINGER LIUI LIHI LILI LIU LIH LIL
-#define L_MIDDLE_FINGER LMU LMH LML
-#define L_RING_FINGER LRU LRH LRL
-#define L_PINKY_FINGER LPU LPH LPL
-#define L_THUMB LTO LTH LTI
-
-#define R_INDEX_FINGER RIUI RIHI RILI RIU RIH RIL
-#define R_MIDDLE_FINGER RMU RMH RML
-#define R_RING_FINGER RRU RRH RRL
-#define R_PINKY_FINGER RPU RPH RPL
-#define R_THUMB RTO RTH RTI
-
-// Layers
-#define BASE 0
-#define FUNCTION 1
-#define LOCK 2
-
-#define COMBO(NAME, LAYERS, KEYPOS, BINDINGS) \
-/ { \
-    combos { \
-        compatible = "zmk,combos"; \
-        combo_##NAME { \
-            bindings = <BINDINGS>; \
-            key-positions = <KEYPOS>; \
-            layers = <LAYERS>; \
-            timeout-ms = <60>; \
-        }; \
-    }; \
-}
-
-#define MOD_MORPH(NAME, MODS, WITHOUT_MODS, WITH_MODS) \
-/ { \
-    behaviors { \
-        NAME##: NAME { \
-            compatible = "zmk,behavior-mod-morph"; \
-            #binding-cells = <0>; \
-            bindings = <WITHOUT_MODS>, <WITH_MODS>; \
-            mods = <(MODS)>; \
-        }; \
-    }; \
-}
-
-#define SHIFTED(NAME, WITHOUT_SHIFT, WITH_SHIFT) \
-MOD_MORPH(NAME, MOD_LSFT|MOD_RSFT, WITHOUT_SHIFT, WITH_SHIFT)
-
-#define MACRO(NAME, ...) \
-/ { \
-    macros { \
-        NAME##: NAME { \
-            compatible = "zmk,behavior-macro"; \
-            #binding-cells = <0>; \
-            wait-ms = <0>; \
-            tap-ms = <0>; \
-            bindings = __VA_ARGS__; \
-        }; \
-    }; \
-}
-
-#define COMPOSE_UNICODE(NAME, FIRST, SECOND, THIRD, FOURTH) \
-MACRO(NAME, <&kp RALT &kp U &kp FIRST &kp SECOND &kp THIRD &kp FOURTH &kp RET>)
-
-#define HOLD_TAP(NAME, HOLD_BINDING, TAP_BINDING) \
-/ { \
-    behaviors { \
-        NAME##: NAME { \
-            compatible = "zmk,behavior-hold-tap"; \
-            #binding-cells = <2>; \
-            flavor = "tap-preferred"; \
-            tapping-term-ms = <150>; \
-            bindings = <HOLD_BINDING>, <TAP_BINDING>; \
-        }; \
-    }; \
-}
-
-#define BIND_HOLD_TAP_ARGUMENTS(NAME, HOLD_TAP_BEHAVIOR, ARGUMENT_1, ARGUMENT_2) \
-MACRO(NAME, <&macro_press & ## HOLD_TAP_BEHAVIOR ARGUMENT_1 ARGUMENT_2>, <&macro_pause_for_release>, <&macro_release & ## HOLD_TAP_BEHAVIOR ARGUMENT_1 ARGUMENT_2>)
-
-#define BIGRAM(NAME, FIRST_LETTER, SECOND_LETTER) \
-MACRO(NAME ## _lowercase, <&kp FIRST_LETTER &kp SECOND_LETTER>); \
-MACRO(NAME ## _uppercase, <&kp LS(FIRST_LETTER) &kp SECOND_LETTER>); \
-MACRO(NAME ## _all_caps, <&kp LS(FIRST_LETTER) &kp LS(SECOND_LETTER)>); \
-SHIFTED(NAME ## _shifted, & ## NAME ## _lowercase, & ## NAME ## _uppercase); \
-MOD_MORPH(NAME, MOD_LCTL|MOD_RCTL, & ## NAME ## _shifted, & ## NAME ## _all_caps)
-
-
-#define AUTOPAIR(NAME, OPENING_SYMBOL, CLOSING_SYMBOL, SHIFTED_TAP_SYMBOL) \
-MACRO(NAME ## _ap, <&kp OPENING_SYMBOL &kp CLOSING_SYMBOL>); \
-MACRO(NAME ## _ap_shift, <&kp OPENING_SYMBOL &kp CLOSING_SYMBOL &kp LEFT>); \
-MACRO(NAME ## _ap_control, <&kp OPENING_SYMBOL &kp RET &kp CLOSING_SYMBOL &kp UP &kp END &kp RET>); \
-\
-MOD_MORPH(NAME ## _hold_shift, MOD_LSFT, & ## NAME ## _ap, & ## NAME ## _ap_shift); \
-MOD_MORPH(NAME ## _hold, MOD_LCTL, & ## NAME ## _hold_shift, & ## NAME ## _ap_control); \
-\
-SHIFTED(NAME ## _tap, &kp CLOSING_SYMBOL, &kp SHIFTED_TAP_SYMBOL); \
-\
-HOLD_TAP(NAME ## _hold_tap, & ## NAME ## _hold, & ## NAME ## _tap); \
-BIND_HOLD_TAP_ARGUMENTS(NAME, NAME ## _hold_tap, 0, 0)
-
-
-#define AUTO_SENTENCE_CASE(NAME, SENTENCE_ENDING_SYMBOL, SHIFTED_TAP_SYMBOL) \
-MACRO(NAME ## _sc, <&kp SENTENCE_ENDING_SYMBOL &kp SPACE &sk LSHIFT>); \
-SHIFTED(NAME ## _shifted_tap_symbols, &kp SENTENCE_ENDING_SYMBOL, &kp SHIFTED_TAP_SYMBOL); \
-HOLD_TAP(NAME ## _sc_ht, & ## NAME ## _sc, & ## NAME ## _shifted_tap_symbols); \
-BIND_HOLD_TAP_ARGUMENTS(NAME, NAME ## _sc_ht, 0, 0)
-
-#define LAYER_KEYMAP(LAYER, \
-    LEFT_UPPER_ROW, \
-    LEFT_HOME_ROW, \
-    LEFT_LOWER_ROW, \
-    LEFT_THUMB_ROW, \
-    RIGHT_UPPER_ROW, \
-    RIGHT_HOME_ROW, \
-    RIGHT_LOWER_ROW, \
-    RIGHT_THUMB_ROW \
-) \
-/ { \
-    keymap { \
-        compatible = "zmk,keymap"; \
-        LAYER ## _layer { \
-            display-name = #LAYER; \
-            bindings = <\
-                LEFT_UPPER_ROW \
-                RIGHT_UPPER_ROW \
-                LEFT_HOME_ROW \
-                RIGHT_HOME_ROW \
-                LEFT_LOWER_ROW \
-                RIGHT_LOWER_ROW \
-                LEFT_THUMB_ROW \
-                RIGHT_THUMB_ROW \
-            >; \
-        }; \
-    }; \
-}
-
-// ----------------------------------------------------------------------------------------------------------------------------------------
-// BEHAVIORS
-
-&sk {
-    quick-release;
-    release-after-ms = <10000>;
-};
-
-&caps_word {
-    continue-list = <UNDERSCORE MINUS BACKSPACE DELETE>;
-    /delete-property/ ignore-modifiers;
-};
+#define LAYER_C 1
+#define LAYER_P 2
+#define LAYER_M 3
+#define LAYER_G 4
+#define LAYER_U 5
+#define LAYER_L 6
+#define LAYER_H 7
+#define LAYER_O 8
+#define LAYER_Magic 9
+#define LAYER_Symbols 10
+#define LAYER_Num 11
+#define LAYER_Mouse 12
 
 / {
-    behaviors {
-        lmt: lmt {
-            compatible = "zmk,behavior-hold-tap";
-            #binding-cells = <2>;
+behaviors {
+   hm: homerow_mods {
+       compatible = "zmk,behavior-hold-tap";
+       label = "HOMEROW_MODS";
+       #binding-cells = <2>;
+       tapping-term-ms = <200>;
+       quick-tap-ms = <0>;
             flavor = "balanced";
-            tapping-term-ms = <280>;
-            quick-tap-ms = <175>;
-            require-prior-idle-ms = <100>;
             bindings = <&kp>, <&kp>;
-            hold-trigger-key-positions = <R_INDEX_FINGER R_MIDDLE_FINGER R_RING_FINGER R_PINKY_FINGER R_THUMB>;
-            hold-trigger-on-release;
-        };
-
-        rmt: rmt {
-            compatible = "zmk,behavior-hold-tap";
-            #binding-cells = <2>;
-            flavor = "balanced";
-            tapping-term-ms = <280>;
-            quick-tap-ms = <175>;
-            require-prior-idle-ms = <100>;
-            bindings = <&kp>, <&kp>;
-            hold-trigger-key-positions = <L_INDEX_FINGER L_MIDDLE_FINGER L_RING_FINGER L_PINKY_FINGER L_THUMB>;
-            hold-trigger-on-release;
-        };
     };
+    as: auto_shift {
+        compatible = "zmk,behavior-hold-tap";
+        label = "AUTO_SHIFT";
+        #binding-cells = <2>;
+        tapping_term_ms = <250>;
+        quick_tap_ms = <0>;
+        flavor = "tap-preferred";
+        bindings = <&kp>, <&kp>;
+    };
+    mm_bspc_del: mm_backspace_delete {
+        compatible = "zmk,behavior-mod-morph";
+        label = "MM_BACKSPACE_DELETE";
+        #binding-cells = <0>;
+        bindings = <&kp BACKSPACE>, <&kp DELETE>;
+        mods = <(MOD_LSFT|MOD_RSFT)>;
+    };
+
+    kp_sl: kp_sl {
+  label = "keypress and sticky layer";
+  compatible = "zmk,behavior-macro-two-param";
+  #binding-cells = <2>;
+  bindings
+    = <&macro_param_1to1>
+    , <&macro_tap &kp MACRO_PLACEHOLDER>
+    , <&macro_param_2to1>
+    , <&macro_tap &sl MACRO_PLACEHOLDER>
+    ;
 };
+};
+};
+/ {
+        keymap {
+                compatible = "zmk,keymap";
 
-SHIFTED(divide_multiply, &kp SLASH, &kp ASTERISK);
-SHIFTED(minus_plus, &kp MINUS, &kp PLUS);
-SHIFTED(and_or, &kp AMPERSAND, &kp PIPE);
-SHIFTED(equal_tilde, &kp EQUAL, &kp TILDE);
-SHIFTED(underscore_backslash, &kp UNDERSCORE, &kp BACKSLASH);
-SHIFTED(semicolon_colon, &kp SEMICOLON, &kp COLON);
-SHIFTED(backspace_delete, &kp BACKSPACE, &kp DELETE);
+                default_layer {
+                        display-name = "Base";
+                        bindings = <
+   &kp X &kp F &kp D &kp_sl P LAYER_P &kp J                              &kp ESC &kp_sl G LAYER_G  &kp_sl O LAYER_O     &kp_sl U LAYER_U   &kp COMMA
+   &hm LCTRL N &hm LALT S &hm LGUI T &kp_sl L LAYER_L &kp W   &kp Y &kp_sl H LAYER_H  &hm LGUI A     &hm LALT E   &hm LCTRL I 
+   &kp B &kp V &kp K &kp_sl M LAYER_M &kp Q                              &kp Z &kp_sl C LAYER_C  &kp SQT &kp FSLH &kp DOT 
+               &lt LAYER_Mouse TAB &lt LAYER_Symbols R  &hm LSFT BSPC                             &lt LAYER_Num RET &hm LSFT SPACE &sk RALT
+                        >;
+                };
 
-AUTO_SENTENCE_CASE(period_comma, PERIOD, COMMA);
-AUTO_SENTENCE_CASE(question_percent, QUESTION, PERCENT);
-AUTO_SENTENCE_CASE(exclamation_at, EXCLAMATION, AT_SIGN);
+                layer_c {
+                        display-name = "C";
+                        bindings = <
+   &trans &kp H &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &kp V &kp F  &trans     &trans   &trans
+   &trans &kp Y &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
 
-AUTOPAIR(angled_brackets, LESS_THAN, GREATER_THAN, LESS_THAN);
-AUTOPAIR(round_brackets, LPAR, RPAR, LPAR);
-AUTOPAIR(curly_brackets, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACE);
-AUTOPAIR(square_brackets, LEFT_BRACKET, RIGHT_BRACKET, LEFT_BRACKET);
-AUTOPAIR(backtick_caret, GRAVE, GRAVE, CARET);
-AUTOPAIR(double_quotes_hash, DOUBLE_QUOTES, DOUBLE_QUOTES, HASH);
-AUTOPAIR(single_quote_dollar, SINGLE_QUOTE, SINGLE_QUOTE, DOLLAR);
+                layer_p {
+                        display-name = "P";
+                        bindings = <
+   &trans &kp L &trans &trans &trans                              &kp F &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
 
-BIGRAM(qu, Q, U);
-BIGRAM(gh, G, H);
-BIGRAM(sh, S, H);
-BIGRAM(wh, W, H);
-BIGRAM(ph, P, H);
-BIGRAM(ch, C, H);
-BIGRAM(th, T, H);
+                layer_m {
+                        display-name = "M";
+                        bindings = <
+   &trans &trans &trans &kp V &trans                              &kp F &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+   &trans &kp P &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
 
-MACRO(newline_above, <&kp HOME &kp RET &kp UP>);
-MACRO(newline_below, <&kp END &kp RET>);
-SHIFTED(newline, &newline_below, &newline_above);
+                layer_g {
+                        display-name = "G";
+                        bindings = <
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &kp B  &trans     &trans   &trans
+   &kp H &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
 
-MACRO(join_with_line_above, <&kp HOME &kp BACKSPACE &kp HOME>);
-MACRO(join_with_line_below, <&kp END &kp DELETE &kp END>);
-SHIFTED(join_with_line, &join_with_line_below, &join_with_line_above);
+                layer_u {
+                        display-name = "U";
+                        bindings = <
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &kp E  &trans     &kp H   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
 
-MACRO(delete_word, <&kp LC(LEFT) &kp LC(LS(RIGHT)) &kp BACKSPACE>);
-MACRO(delete_line, <&kp HOME &kp LS(END) &kp BACKSPACE>);
-SHIFTED(delete_word_or_line, &delete_line, &delete_word);
+                layer_l {
+                        display-name = "L";
+                        bindings = <
+   &trans &trans &trans &kp H &trans                              &kp W &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &kp P  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
 
-// unicode symbols
-COMPOSE_UNICODE(sharp_s_lowercase, N0, N0, D, F);
-COMPOSE_UNICODE(sharp_s_uppercase, N1, E, N9, E);
-SHIFTED(sharp_s, &sharp_s_lowercase, &sharp_s_uppercase);
+                layer_h {
+                        display-name = "H";
+                        bindings = <
+   &trans &trans &trans &kp Y &trans                              &kp P &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
 
-COMPOSE_UNICODE(diacritic_umlaut, N0, N3, N0, N8);
-COMPOSE_UNICODE(diacritic_breve, N0, N3, N0, N6);
-COMPOSE_UNICODE(diacritic_circumflex, N0, N3, N0, N2);
-COMPOSE_UNICODE(diacritic_comma, N0, N3, N2, N6);
+                layer_o {
+                        display-name = "H";
+                        bindings = <
+   &trans &trans &trans &trans &trans                              &kp A &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
 
-// ----------------------------------------------------------------------------------------------------------------------------------------
-// COMBO BINDINGS
+                layer_sys {
+                        display-name = "Sys";
+                        bindings = <
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+   &bt BT_CLR &bt BT_SEL 0 &bt BT_SEL 1 &bt BT_SEL 2 &bt BT_SEL 3  &trans &trans  &trans     &trans   &trans
+   &trans &trans &trans &trans &trans                              &trans &trans  &trans     &trans   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
 
-// letter and bigram combos
-COMBO(z, BASE, LPU LRU, &kp Z);
-COMBO(qu, BASE, LPH LRH, &qu);
-COMBO(q, BASE, LPL LRL, &kp Q);
-COMBO(sharp_s, BASE, LPL LRH, &sharp_s);
+                layer_sym {
+                        display-name = "Sym";
+                        bindings = <
+   &kp ESC &kp LBKT &kp LT &kp RBKT &kp EQUAL                              &trans &trans  &kp UP     &trans   &trans
+   &kp GRAVE &kp LPAR &kp SEMI &kp RPAR &kp MINUS                              &trans &kp LEFT  &kp DOWN     &kp RIGHT   &trans
+   &kp TILDE &kp LBRC &kp GT &kp RBRC &kp BSLH                              &trans &kp PAGE_DOWN  &trans     &kp PAGE_UP   &trans
+                  &trans &trans &trans                              &trans &trans &kp LSHFT
+                        >;
+                };
 
-COMBO(gh, BASE, LRU LMU, &gh);
-COMBO(sh, BASE, LRH LMH, &sh);
-COMBO(wh, BASE, LRL LML, &wh);
+                layer_num {
+                        display-name = "Num";
+                        bindings = <
+   &trans &kp N1 &kp N2 &kp N3 &trans                              &trans &kp EXCL  &kp AT     &kp HASH   &trans
+   &trans &kp N4 &kp N5 &kp N6 &trans                              &trans &kp DLLR  &kp PRCNT     &kp CARET   &trans
+   &trans &kp N7 &kp N8 &kp N9 &trans                              &trans &kp AMPS  &kp STAR     &kp LPAR   &trans
+                  &trans &kp N0 &trans                              &trans &trans &trans
+                        >;
+                };
 
-COMBO(ph, BASE, LMU LIU, &ph);
-COMBO(th, BASE, LMH LIH, &th);
-COMBO(ch, BASE, LML LIL, &ch);
-
-// symbol combos
-COMBO(angled_brackets, BASE, RIU RMU, &angled_brackets);
-COMBO(underscore_backslash, BASE, RIH RMH, &underscore_backslash);
-COMBO(square_brackets, BASE, RIL RML, &square_brackets);
-
-COMBO(round_brackets, BASE, RMU RRU, &round_brackets);
-COMBO(equal_tilde, BASE, RMH RRH, &equal_tilde);
-COMBO(curly_brackets, BASE, RML RRL, &curly_brackets);
-
-COMBO(backtick_caret, BASE, RRU RPU, &backtick_caret);
-COMBO(double_quotes_hash, BASE, RRH RPH, &double_quotes_hash);
-COMBO(single_quote_dollar, BASE, RRL RPL, &single_quote_dollar);
-
-// number combos
-COMBO(vertical_8, BASE, RIUI RIHI, &kp N8);
-COMBO(vertical_0, BASE, RIU  RIH,  &kp N0);
-COMBO(vertical_2, BASE, RMU  RMH,  &kp N2);
-COMBO(vertical_4, BASE, RRU  RRH,  &kp N4);
-COMBO(vertical_6, BASE, RPU  RPH,  &kp N6);
-
-COMBO(vertical_9, BASE, LIUI LIHI, &kp N9);
-COMBO(vertical_1, BASE, LIU  LIH,  &kp N1);
-COMBO(vertical_3, BASE, LMU  LMH,  &kp N3);
-COMBO(vertical_5, BASE, LRU  LRH,  &kp N5);
-COMBO(vertical_7, BASE, LPU  LPH,  &kp N7);
-
-// navigation combos
-COMBO(left, BASE, RIH RIL, &kp LEFT);
-COMBO(down, BASE, RMH RML, &kp DOWN);
-COMBO(up, BASE, RRH RRL, &kp UP);
-COMBO(right, BASE, RPH RPL, &kp RIGHT);
-
-COMBO(home, BASE, LPH LPL, &kp HOME);
-COMBO(page_down, BASE, LRH LRL, &kp PAGE_DOWN);
-COMBO(page_up, BASE, LMH LML, &kp PAGE_UP);
-COMBO(end, BASE, LIH LIL, &kp END);
-
-// layer and word combos
-COMBO(oneshot_fn_layer, BASE, LPU LRU LMU LIU, &sl FUNCTION);
-COMBO(caps_word, BASE, LIH RIH, &caps_word);
-
-// combo for deleting the current word or line
-COMBO(delete_word_or_line, BASE, LTI LTH, &delete_word_or_line);
-
-// combo for inserting newlines above or below the current line
-COMBO(newline, BASE, RTI RTH, &newline);
-
-// combo for joining the current line with the one above or below
-COMBO(join_with_line, BASE, RTH RTO, &join_with_line);
-
-
-COMBO(lock, BASE, LPU LRU LMU LIU RIU RMU RRU RPU, &to LOCK);
-
-// combining diacritial mark combos
-COMBO(diacritic_umlaut, BASE, LMH LIL, &diacritic_umlaut);
-COMBO(diacritic_breve, BASE, LRH LML, &diacritic_breve);
-COMBO(diacritic_circumflex, BASE, LRL LMH, &diacritic_circumflex);
-COMBO(diacritic_comma, BASE, RIL RMH, &diacritic_comma);
-
-// ----------------------------------------------------------------------------------------------------------------------------------------
-// KEY BINDINGS
-
-LAYER_KEYMAP(BASE,
-    &kp J &kp G &kp M &kp P &kp V,
-    &lmt LMETA R &lmt LALT S &lmt LCTRL N &lmt LSHIFT D &kp B,
-    &kp X &kp F &kp L &kp C &kp W,
-    &kp ESC &kp T &backspace_delete,
-
-    &divide_multiply &semicolon_colon &period_comma &question_percent &exclamation_at,
-    &minus_plus &rmt RSHIFT A &rmt RCTRL E &rmt RALT I &rmt RMETA H,
-    &and_or &kp U &kp O &kp Y &kp K,
-    &kp RET &kp SPACE &kp TAB
-);
-
-LAYER_KEYMAP(FN,
-    &bt BT_CLR &ext_power EP_OFF &ext_power EP_ON &out OUT_USB &out OUT_BLE,
-    &bt BT_SEL 4 &bt BT_SEL 3 &bt BT_SEL 2 &bt BT_SEL 1 &bt BT_SEL 0,
-    &none &none &none &none &none,
-    &none &none &none,
-
-    &none &none &none &none &none,
-    &none &none &none &none &none,
-    &none &none &none &none &none,
-    &none &none &none
-);
-
-LAYER_KEYMAP(LOCK,
-    &none &none &none &none &none,
-    &none &none &none &none &none,
-    &none &none &none &none &none,
-    &none &none &none,
-
-    &none &none &none &none &none,
-    &none &none &none &none &none,
-    &none &none &none &none &none,
-    &none &none &none
-);
+                layer_mouse {
+                        display-name = "Mouse";
+                        bindings = <
+   &trans &trans &trans &trans &trans                              &trans &trans  &mmv MOVE_UP     &trans   &trans
+   &trans &mkp LCLK &trans &mkp RCLK &trans                              &trans &mmv MOVE_LEFT  &mmv MOVE_DOWN     &mmv MOVE_RIGHT   &trans
+   &trans &trans &trans &trans &trans                              &trans &kp PAGE_DOWN  &trans     &kp PAGE_UP   &trans
+                  &trans &trans &trans                              &trans &trans &trans
+                        >;
+                };
+        };
+};
