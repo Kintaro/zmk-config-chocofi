@@ -77,9 +77,9 @@ behaviors {
                         display-name = "Base";
                         bindings = <
    &kp X &kp F &kp D &kp_sl P LAYER_P &kp J                              &kp ESC &kp_sl G LAYER_G  &kp_sl O LAYER_O     &kp_sl U LAYER_U   &kp COMMA
-   &hm LCTRL N &hm LALT S &hm LGUI T &kp_sl L LAYER_L &kp W   &kp Y &kp_sl H LAYER_H  &hm LGUI A     &hm LALT E   &hm LCTRL I 
+   &hm LCTRL N &hm LALT S &hm LGUI T &kp_sl L LAYER_L &hm LSFT W   &kp Y &kp_sl H LAYER_H  &hm LGUI A     &hm LALT E   &hm LCTRL I 
    &kp B &kp V &kp K &kp_sl M LAYER_M &kp Q                              &kp Z &kp_sl C LAYER_C  &kp SQT &kp FSLH &kp DOT 
-               &lt LAYER_Mouse TAB &lt LAYER_Symbols R  &hm LSFT BSPC                             &lt LAYER_Num RET &hm LSFT SPACE &sk RALT
+               &lt LAYER_Mouse TAB &lt LAYER_Symbols R  &kp BSPC                             &lt LAYER_Num RET &hm LSFT SPACE &sk RALT
                         >;
                 };
 
